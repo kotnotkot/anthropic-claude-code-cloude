@@ -1,0 +1,325 @@
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #14171a;
+  --muted: #5b6470;
+  --border: #e0e3e8;
+  --accent: #003da5;
+  --accent-text: #ffffff;
+  --late: #b3261e;
+  --cancel: #b3261e;
+  --added: #6a4bd6;
+  --on-time-shadow: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1115;
+    --surface: #1b1e24;
+    --text: #eef0f2;
+    --muted: #9aa3ad;
+    --border: #2b2f36;
+    --accent: #6ea8ff;
+    --accent-text: #0f1115;
+    --late: #ff8a80;
+    --cancel: #ff8a80;
+    --added: #b9a3ff;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 18px;
+  -webkit-text-size-adjust: 100%;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.station-btn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0.2rem;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.station-btn #stationName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron { font-size: 0.9rem; opacity: 0.85; }
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.live-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+}
+
+.live-toggle input {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+  border: none;
+  background: rgba(255, 255, 255, 0.18);
+  color: inherit;
+  border-radius: 10px;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-btn:active { transform: scale(0.96); }
+
+.updated-line {
+  padding: 0.4rem 0.9rem 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: right;
+}
+
+.status-banner {
+  margin: 0.6rem 0.9rem 0;
+  padding: 0.7rem 0.9rem;
+  background: #fdecea;
+  color: #611a15;
+  border: 1px solid var(--late);
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .status-banner { background: #3a1a17; color: #ffd9d4; }
+}
+
+.departures {
+  padding: 0.75rem 0.9rem 3rem;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.empty-state {
+  color: var(--muted);
+  text-align: center;
+  margin-top: 3rem;
+  font-size: 1.05rem;
+}
+
+.dest-group {
+  margin-bottom: 1.5rem;
+}
+
+.dest-heading {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dep-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dep-row.cancelled {
+  opacity: 0.75;
+}
+
+.dep-time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dep-time.struck {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.dep-arrow {
+  font-size: 1.1rem;
+  color: var(--muted);
+}
+
+.dep-live {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--late);
+  font-variant-numeric: tabular-nums;
+}
+
+.dep-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.badge-boarding { background: #e8f5e9; color: #1b5e20; }
+.badge-cancelled { background: #fdecea; color: var(--cancel); }
+.badge-added { background: #ece6ff; color: var(--added); }
+.badge-platform { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+@media (prefers-color-scheme: dark) {
+  .badge-boarding { background: #14351a; color: #9be29f; }
+  .badge-cancelled { background: #3a1a17; color: var(--cancel); }
+  .badge-added { background: #2a2140; color: var(--added); }
+}
+
+.dep-spacer { flex: 1 1 auto; }
+
+/* --- Station picker overlay --- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+}
+
+/* Author CSS overrides the browser's default `[hidden] { display: none }`
+   rule, so `display` must be set conditionally here rather than always. */
+.overlay:not([hidden]) {
+  display: flex;
+  align-items: flex-end;
+}
+
+.picker {
+  background: var(--surface);
+  width: 100%;
+  max-height: 85vh;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.picker-header {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.8rem 0.8rem 0.4rem;
+}
+
+#stationSearch {
+  flex: 1;
+  font-size: 1.05rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.picker .icon-btn {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.use-location-btn {
+  margin: 0.6rem 0.8rem;
+  padding: 0.7rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.station-list {
+  overflow-y: auto;
+  padding: 0 0.4rem 1rem;
+}
+
+.station-group-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.6rem 0.6rem 0.2rem;
+}
+
+.station-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.6rem;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.station-row:active { background: var(--bg); }
+
+.station-row .name {
+  flex: 1;
+  font-size: 1.05rem;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  min-width: 44px;
+  min-height: 44px;
+  cursor: pointer;
+  color: #d9a441;
+}

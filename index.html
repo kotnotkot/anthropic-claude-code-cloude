@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>BART Departures</title>
+<meta name="description" content="BART departures shown as clock times, with live delays.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BART Times">
+<meta name="theme-color" content="#003da5">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <button id="stationBtn" class="station-btn" aria-haspopup="dialog" aria-controls="pickerOverlay">
+      <span id="stationName">Finding your station…</span>
+      <span class="chevron" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="topbar-actions">
+      <label class="live-toggle" title="Show or hide live times">
+        <input type="checkbox" id="liveToggle" checked>
+        <span>Live</span>
+      </label>
+      <button id="refreshBtn" class="icon-btn" aria-label="Refresh now">&#8635;</button>
+    </div>
+  </header>
+
+  <div id="updatedLine" class="updated-line">&mdash;</div>
+  <div id="statusBanner" class="status-banner" role="alert" hidden></div>
+
+  <main id="departures" class="departures" aria-live="polite">
+    <p class="empty-state">Loading departures&hellip;</p>
+  </main>
+
+  <div id="pickerOverlay" class="overlay" hidden>
+    <div class="picker" role="dialog" aria-modal="true" aria-label="Choose a station">
+      <div class="picker-header">
+        <input id="stationSearch" type="search" placeholder="Search stations&hellip;" autocomplete="off" aria-label="Search stations">
+        <button id="pickerClose" class="icon-btn" aria-label="Close">&#10005;</button>
+      </div>
+      <button id="useLocationBtn" class="use-location-btn">&#128205; Use my location</button>
+      <div id="stationList" class="station-list"></div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
