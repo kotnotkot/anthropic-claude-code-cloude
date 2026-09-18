@@ -185,6 +185,24 @@ The app now matches by **platform** instead:
 **Cancelled** trains are different — BART's live feed flags those directly
 (a `cancelflag`), so no guessing is involved there.
 
+### Line colors
+
+Each destination's heading and its rows' left edge are tinted a soft,
+muted version of BART's own line color (red stays red, just gentler —
+see `mutedLineColor` in `app.js`). The color comes from a `hexcolor` field
+the live feed reports per train; a far-future row beyond the live window
+borrows its platform's color the same way it borrows its destination name
+(see step 4 above). If a train has no color info at all, its row just uses
+the normal neutral styling — no color is treated as a fine, expected
+outcome, not an error.
+
+One honest caveat: unlike the schedule fields above, I haven't verified
+`hexcolor` against a real `etd.aspx` response yet — it's a well-documented
+field for this exact purpose across other BART projects, so I'm fairly
+confident in it, but if colors look absent or wrong after you deploy this,
+paste me an `etd.aspx` response (Network tab, same way as before) and I'll
+fix it against real data instead of another guess.
+
 ## Decisions I made that are yours to revisit
 
 The brief asked me to flag anything I decided on your behalf rather than

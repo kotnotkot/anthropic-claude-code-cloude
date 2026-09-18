@@ -64,6 +64,50 @@ function normalizePlatform(p) {
   return m ? m[0] : null;
 }
 
+// Mutes a BART line color (e.g. "#ffff33") to a soft, pastel version for
+// group headings and row accents — same hue, fixed moderate saturation
+// and lightness so every line reads at a similar, gentle intensity and
+// stays legible in both light and dark mode. Returns null (no color) for
+// anything that isn't a recognizable hex color, so callers can fall back
+// to the normal neutral styling.
+function mutedLineColor(hex) {
+  if (!hex || typeof hex !== 'string') return null;
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const h = m[1];
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let hue = 0;
+  if (max !== min) {
+    const d = max - min;
+    switch (max) {
+      case r: hue = ((g - b) / d + (g < b ? 6 : 0)); break;
+      case g: hue = ((b - r) / d + 2); break;
+      default: hue = ((r - g) / d + 4);
+    }
+    hue *= 60;
+  }
+  return hslToHex(hue, 0.40, 0.52);
+}
+
+function hslToHex(hueDeg, sat, light) {
+  const c = (1 - Math.abs(2 * light - 1)) * sat;
+  const x = c * (1 - Math.abs(((hueDeg / 60) % 2) - 1));
+  const m = light - c / 2;
+  let seg;
+  if (hueDeg < 60) seg = [c, x, 0];
+  else if (hueDeg < 120) seg = [x, c, 0];
+  else if (hueDeg < 180) seg = [0, c, x];
+  else if (hueDeg < 240) seg = [0, x, c];
+  else if (hueDeg < 300) seg = [x, 0, c];
+  else seg = [c, 0, x];
+  const toHex = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+  return `#${toHex(seg[0])}${toHex(seg[1])}${toHex(seg[2])}`;
+}
+
 function pacificDateKey(epochMs) {
   // "YYYY-MM-DD" for the given instant, in Pacific time — used only to
   // notice when the service day has rolled over so we refetch the
@@ -199,6 +243,7 @@ async function fetchLiveEtd(abbr) {
         delaySeconds: parseInt(est.delay || '0', 10),
         cancelled: est.cancelflag === '1',
         direction: est.direction,
+        hexcolor: est.hexcolor || etd.hexcolor || null, // BART's own line color, e.g. "#ffff33"
       });
     });
   });
@@ -336,7 +381,11 @@ function buildDeparturesModel(nowMs) {
   liveWithApproxEpoch.forEach((r) => {
     const p = normalizePlatform(r.platform);
     if (p !== null && !platformToLiveDest.has(p)) {
-      platformToLiveDest.set(p, { destination: r.destination, destinationAbbr: r.destinationAbbr });
+      platformToLiveDest.set(p, {
+        destination: r.destination,
+        destinationAbbr: r.destinationAbbr,
+        lineColor: mutedLineColor(r.hexcolor),
+      });
     }
   });
 
@@ -401,6 +450,7 @@ function buildDeparturesModel(nowMs) {
       boarding: isBoarding,
       cancelled: r.cancelled,
       platform: normalizePlatform(r.platform),
+      lineColor: mutedLineColor(r.hexcolor),
       sortEpoch: matchedSched ? scheduledEpoch : liveEpoch,
     });
   });
@@ -423,6 +473,7 @@ function buildDeparturesModel(nowMs) {
       boarding: false,
       cancelled: false,
       platform,
+      lineColor: liveDest ? liveDest.lineColor : null,
       sortEpoch: roundDownToMinuteMs(s.epoch),
     });
   });
@@ -447,7 +498,10 @@ function windowAndGroup(rows, nowMs) {
       ? kept
       : destRows.slice(0, CONFIG.MIN_PER_DESTINATION);
     if (finalRows.length) {
-      groups.push({ abbr, name: finalRows[0].destination, rows: finalRows, next: finalRows[0].sortEpoch });
+      const lineColor = finalRows.find((r) => r.lineColor)?.lineColor || null;
+      groups.push({
+        abbr, name: finalRows[0].destination, rows: finalRows, next: finalRows[0].sortEpoch, lineColor,
+      });
     }
   });
 
@@ -483,8 +537,11 @@ function renderDepartures() {
     return;
   }
 
+  // g.lineColor is set as a CSS custom property on the group wrapper —
+  // custom properties inherit, so the heading and every row inside can
+  // read it via var(--line-color, <fallback>) without repeating it.
   departuresEl.innerHTML = groups.map((g) => `
-    <section class="dest-group">
+    <section class="dest-group"${g.lineColor ? ` style="--line-color: ${g.lineColor}"` : ''}>
       <h2 class="dest-heading">To ${escapeHtml(g.name)}</h2>
       ${g.rows.map(renderRow).join('')}
     </section>
