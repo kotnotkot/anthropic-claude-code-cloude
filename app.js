@@ -56,6 +56,14 @@ function roundDownToMinuteMs(epochMs) {
   return Math.floor(epochMs / 60000) * 60000;
 }
 
+// The schedule reports platforms as "PL 2", the live feed as plain "2"
+// — pull out just the number so the two can be compared.
+function normalizePlatform(p) {
+  if (!p) return null;
+  const m = /\d+/.exec(String(p));
+  return m ? m[0] : null;
+}
+
 function pacificDateKey(epochMs) {
   // "YYYY-MM-DD" for the given instant, in Pacific time — used only to
   // notice when the service day has rolled over so we refetch the
@@ -268,18 +276,31 @@ function toggleFavorite(abbr) {
 // ========================= Matching (the tricky part) =========================
 //
 // The live feed (etd.aspx) only looks ~1 hour ahead and doesn't carry a
-// stable train ID we can rely on across both endpoints, so we match a
-// live estimate to a scheduled row by: same destination station, then
-// closest departure time, within CONFIG.MATCH_TOLERANCE_MINUTES.
+// stable train ID we can rely on across both endpoints, so we have to
+// pair a live estimate with a scheduled row some other way.
 //
-// Matching is destination-scoped and greedy, but by closest PAIR first,
-// not by walking live trains in time order: we list every (live,
-// scheduled) candidate pair within tolerance for a destination, sort
-// all of them by how close together they are, and claim pairs in that
-// order (each live estimate and each scheduled slot can only be claimed
-// once). Processing by live-train order instead would be order-
-// dependent — a slightly-off extra train processed first could steal
-// the slot that really belongs to a spot-on match considered later.
+// Destination text turned out NOT to be a reliable way to do that: a
+// real sched.aspx response describes a destination as a route headsign
+// like "SF / SFO Airport / Millbrae", while etd.aspx describes it as a
+// specific station code like "MLBR" — those never match as text, so
+// matching by destination silently matched nothing at all, and every
+// train ended up listed twice (once from each feed, under two
+// different-looking group headings for what was really one train).
+//
+// Matching instead scopes by PLATFORM — both feeds report one (as
+// "PL 2" vs plain "2"; see normalizePlatform), and which platform a
+// train uses reliably tells you its direction, which is what actually
+// matters here — then picks the closest departure time within that
+// platform, within CONFIG.MATCH_TOLERANCE_MINUTES.
+//
+// Within a platform, matching is greedy by closest PAIR first, not by
+// walking live trains in time order: we list every (live, scheduled)
+// candidate pair within tolerance, sort all of them by how close
+// together they are, and claim pairs in that order (each live estimate
+// and each scheduled slot can only be claimed once). Processing by
+// live-train order instead would be order-dependent — a slightly-off
+// extra train processed first could steal the slot that really belongs
+// to a spot-on match considered later.
 //
 // A live estimate that finds no scheduled slot within tolerance simply
 // has no real published time to show — its "scheduled" time is instead
@@ -305,19 +326,35 @@ function buildDeparturesModel(nowMs) {
   const claimed = new Set();
   const matches = new Map(); // live row index -> sched row
 
-  const destinations = new Set(liveWithApproxEpoch.map((r) => r.destinationAbbr));
-  destinations.forEach((destAbbr) => {
-    const liveForDest = liveWithApproxEpoch
-      .map((r, i) => ({ r, i }))
-      .filter((x) => x.r.destinationAbbr === destAbbr);
+  // A given platform serves one direction all day, so the live feed's
+  // destination naming for a platform (reliable) can stand in for the
+  // schedule's naming (a coarser headsign) on that same platform's
+  // schedule-only rows below — otherwise a far-future train (beyond the
+  // live feed's ~1hr window) would show under a different-looking group
+  // heading than its own near-term, live-matched departures.
+  const platformToLiveDest = new Map();
+  liveWithApproxEpoch.forEach((r) => {
+    const p = normalizePlatform(r.platform);
+    if (p !== null && !platformToLiveDest.has(p)) {
+      platformToLiveDest.set(p, { destination: r.destination, destinationAbbr: r.destinationAbbr });
+    }
+  });
 
-    const schedForDest = schedWithEpoch
+  const platforms = new Set(
+    liveWithApproxEpoch.map((r) => normalizePlatform(r.platform)).filter((p) => p !== null),
+  );
+  platforms.forEach((platform) => {
+    const liveForPlatform = liveWithApproxEpoch
+      .map((r, i) => ({ r, i }))
+      .filter((x) => normalizePlatform(x.r.platform) === platform);
+
+    const schedForPlatform = schedWithEpoch
       .map((s, i) => ({ s, i }))
-      .filter((x) => x.s.destinationAbbr === destAbbr);
+      .filter((x) => normalizePlatform(x.s.platform) === platform);
 
     const candidates = [];
-    liveForDest.forEach(({ r, i }) => {
-      schedForDest.forEach(({ s, i: si }) => {
+    liveForPlatform.forEach(({ r, i }) => {
+      schedForPlatform.forEach(({ s, i: si }) => {
         const diff = Math.abs(s.epoch - r.approxEpoch);
         if (diff <= CONFIG.MATCH_TOLERANCE_MINUTES * 60000) {
           candidates.push({ i, si, s, diff });
@@ -363,26 +400,29 @@ function buildDeparturesModel(nowMs) {
       showLive: liveEpoch !== scheduledEpoch,
       boarding: isBoarding,
       cancelled: r.cancelled,
-      platform: r.platform,
+      platform: normalizePlatform(r.platform),
       sortEpoch: matchedSched ? scheduledEpoch : liveEpoch,
     });
   });
 
   // Scheduled rows with no live match yet (beyond the live feed's
   // ~1-hour horizon, or simply not published as an estimate) — these
-  // fill out the rest of the timetable with no platform/live info.
+  // fill out the rest of the timetable, with no live time but still
+  // showing the platform the schedule itself publishes.
   schedWithEpoch.forEach((s, si) => {
     if (claimed.has(si)) return;
     if (s.epoch < nowMs - 60000) return; // already departed
+    const platform = normalizePlatform(s.platform);
+    const liveDest = platform !== null ? platformToLiveDest.get(platform) : null;
     rows.push({
-      destination: stationNameForAbbr(s.destinationAbbr),
-      destinationAbbr: s.destinationAbbr,
+      destination: liveDest ? liveDest.destination : stationNameForAbbr(s.destinationAbbr),
+      destinationAbbr: liveDest ? liveDest.destinationAbbr : s.destinationAbbr,
       scheduledEpoch: roundDownToMinuteMs(s.epoch),
       liveEpoch: null,
       showLive: false,
       boarding: false,
       cancelled: false,
-      platform: null,
+      platform,
       sortEpoch: roundDownToMinuteMs(s.epoch),
     });
   });

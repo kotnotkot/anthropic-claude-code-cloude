@@ -143,11 +143,24 @@ terms. BART gives us two different lists:
   hour, and without any ID that reliably lines up with the schedule).
 
 To show "4:15 PM → 4:17 PM", the app has to guess which live estimate
-corresponds to which scheduled train. It does this by:
+corresponds to which scheduled train.
 
-1. Only comparing trains headed to the **same destination station**.
+The first version of this matched by **destination station** — but a real
+`sched.aspx` response (thanks to some hands-on testing) showed that doesn't
+work: the schedule describes a destination as a route headsign like
+`"SF / SFO Airport / Millbrae"`, while the live feed describes it as a
+specific station code like `"MLBR"`. Those never match as text, so nothing
+ever matched, and every train silently showed up twice — once from each
+feed, under two different-looking group headings.
+
+The app now matches by **platform** instead:
+
+1. Only comparing trains on the **same platform** — both feeds report one
+   (as `"PL 2"` vs. plain `"2"`; the app normalizes that), and which
+   platform a train uses reliably tells you its direction, which is really
+   what "destination" needs to mean here.
 2. Finding the **closest-in-time pairs** first — of every possible
-   (scheduled train, live estimate) pairing to that destination, the pair
+   (scheduled train, live estimate) pairing on that platform, the pair
    that's closest together in time gets matched first, then the next
    closest remaining pair, and so on. This "closest pair first" approach
    (rather than just processing trains in order) avoids a real bug I found
@@ -158,11 +171,16 @@ corresponds to which scheduled train. It does this by:
    minutes by default, in `config.js`) of the scheduled time — if nothing
    scheduled is nearby, the train's "scheduled" time is instead derived as
    its live time minus the reported delay (see the time rules above), so it
-   still shows a plain clock time rather than forcing a bad match. An
-   earlier version of this app labeled these trains "Added"; that's gone
-   now — a train BART wasn't expecting isn't a distinction worth a special
-   badge, especially since matching is inherently a guess (see the note on
-   `sched.aspx`'s real field shapes below).
+   still shows a plain clock time rather than forcing a bad match.
+4. For a scheduled train hours away that the live feed doesn't cover yet,
+   the app borrows whatever destination name the live feed is currently
+   using for *that same platform* — since a platform serves one direction
+   all day, this keeps a destination's group heading consistent across near-
+   term (live-covered) and far-future (schedule-only) departures, instead
+   of splitting into two headings once a train falls outside the live
+   feed's ~1-hour window. If a platform has no live coverage at all (e.g.
+   late at night), its far-future rows fall back to the schedule's own
+   (coarser) headsign text — the best information available at that point.
 
 **Cancelled** trains are different — BART's live feed flags those directly
 (a `cancelflag`), so no guessing is involved there.
@@ -174,8 +192,12 @@ choosing silently. Here's what I picked, and why — all are quick to change
 if you'd rather have it differently (ask me, or edit the noted spot):
 
 - **Grouped by destination, not by line** (e.g. "To Antioch", not "Yellow
-  Line"). Riders generally think in terms of where the train is going.
-  (`app.js`, `windowAndGroup`)
+  Line"). Riders generally think in terms of where the train is going —
+  though under the hood, groups are keyed off *platform* rather than
+  destination text, for the reasons in "How live trains are matched to the
+  schedule" above; a platform serving mixed directions at some point in the
+  day (rare, but possible during service changes) could in theory produce a
+  wrong grouping. (`app.js`, `windowAndGroup`, `buildDeparturesModel`)
 - **There's no Live on/off toggle.** The brief originally asked for one, but
   after using the app it turned out to add more confusion than value — a
   train that couldn't be matched to the schedule ("Added") used to
