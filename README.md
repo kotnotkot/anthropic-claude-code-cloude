@@ -171,12 +171,16 @@ if you'd rather have it differently (ask me, or edit the noted spot):
 - **Grouped by destination, not by line** (e.g. "To Antioch", not "Yellow
   Line"). Riders generally think in terms of where the train is going.
   (`app.js`, `windowAndGroup`)
-- **Cancelled trains still show even with the Live toggle off.** The
-  toggle's job is to hide *live times* for a clean timetable view, but I
-  treated "don't wait for a train that isn't coming" as safety information
-  worth keeping regardless. **Added** (extra/unscheduled) trains, on the
-  other hand, disappear when Live is off, since they have no real scheduled
-  time to show. (`app.js`, `renderDepartures`)
+- **Turning Live off never removes a row, only the live overlay.** Every
+  departure — even an "Added" (unscheduled) one — carries a scheduled time
+  per the time rules above (worked out from live time minus the reported
+  delay when there's no real published match), so Live off just falls back
+  to that instead of hiding the row. An earlier version of this app hid
+  Added trains entirely when Live was off, which could empty the whole
+  screen if the schedule data failed to match anything — fixed after
+  hitting exactly that. Cancelled trains stay marked either way, since
+  "don't wait for a train that isn't coming" is safety information, not a
+  live-only detail. (`app.js`, `renderDepartures`, `renderRow`)
 - **A boarding train shows one time (the live one) plus a "Boarding" label**,
   rather than a "scheduled → live" arrow — showing both looked confusing
   once a train is already at the platform. (`app.js`, `renderRow`)

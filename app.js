@@ -426,13 +426,13 @@ function renderDepartures() {
   // should never take down the rest of the timetable.
   let groups;
   try {
-    let rows = buildDeparturesModel(nowMs);
-    // "Added" trains only exist because the live feed reported them — in
-    // schedule-only (Live off) view there's no scheduled time to show for
-    // them, so they're left out rather than shown with a made-up time.
-    // Cancellations stay visible either way: knowing not to wait for a
-    // train is safety information, not a "live time".
-    if (!state.liveOn) rows = rows.filter((r) => !r.added || r.cancelled);
+    const rows = buildDeparturesModel(nowMs);
+    // Every row already carries a scheduledEpoch — even an unmatched
+    // ("added") live estimate gets one, worked out as live time minus
+    // its reported delay (see buildDeparturesModel). So turning Live
+    // off never needs to remove a row, only the live overlay (the ->
+    // arrow, Boarding/Added labels, platform): renderRow already falls
+    // back to scheduledEpoch on its own when state.liveOn is false.
     groups = windowAndGroup(rows, nowMs);
   } catch (err) {
     showStatus(`Couldn't display departures: ${err.message}. If this keeps happening, BART's API may have changed a field name — please report it.`);
@@ -467,9 +467,11 @@ function renderRow(r) {
     liveHtml = `<span class="dep-arrow">&rarr;</span><span class="dep-live">${formatClock(r.liveEpoch)}</span>`;
   }
 
-  // "Added" trains have no scheduled time at all, and a boarding train
-  // shows a single current clock time (not a "sched -> live" arrow) —
-  // both cases just show the live time as the primary time.
+  // With Live on, an "added" train shows its live time as the primary
+  // time (its scheduledEpoch is only an inferred stand-in, not a real
+  // published time), and a boarding train shows one current clock time
+  // rather than a "sched -> live" arrow. With Live off, both fall back
+  // to schedTimeHtml above like any other row.
   const primaryHtml = (r.added || r.boarding) && state.liveOn && r.liveEpoch !== null
     ? `<span class="dep-time">${formatClock(r.liveEpoch)}</span>`
     : schedTimeHtml + liveHtml;
