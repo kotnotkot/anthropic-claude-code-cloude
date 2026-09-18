@@ -81,6 +81,7 @@ function formatClock(epochMs) {
 // then overwriting the hour/minute — this avoids ever having to know
 // the viewer's own timezone offset.
 function pacificWallTimeToEpoch(timeStr, referenceEpochMs) {
+  if (typeof timeStr !== 'string') return null;
   const m = /^(\d{1,2}):(\d{2})\s*([AP]M)$/i.exec(timeStr.trim());
   if (!m) return null;
   let hour = parseInt(m[1], 10) % 12;
@@ -207,6 +208,11 @@ async function getStations() {
 
 function findStationByAbbr(abbr) {
   return state.stations.find((s) => s.abbr === abbr) || null;
+}
+
+function stationNameForAbbr(abbr) {
+  const s = findStationByAbbr(abbr);
+  return s ? s.name : abbr;
 }
 
 function nearestStation(lat, lng) {
@@ -364,7 +370,7 @@ function buildDeparturesModel(nowMs) {
     if (claimed.has(si)) return;
     if (s.epoch < nowMs - 60000) return; // already departed
     rows.push({
-      destination: s.destinationAbbr,
+      destination: stationNameForAbbr(s.destinationAbbr),
       destinationAbbr: s.destinationAbbr,
       scheduledEpoch: roundDownToMinuteMs(s.epoch),
       liveEpoch: null,
@@ -413,14 +419,26 @@ function renderDepartures() {
     departuresEl.innerHTML = '<p class="empty-state">Loading departures&hellip;</p>';
     return;
   }
-  let rows = buildDeparturesModel(nowMs);
-  // "Added" trains only exist because the live feed reported them — in
-  // schedule-only (Live off) view there's no scheduled time to show for
-  // them, so they're left out rather than shown with a made-up time.
-  // Cancellations stay visible either way: knowing not to wait for a
-  // train is safety information, not a "live time".
-  if (!state.liveOn) rows = rows.filter((r) => !r.added || r.cancelled);
-  const groups = windowAndGroup(rows, nowMs);
+
+  // Guards a real bug I hit before: BART's API occasionally has rows
+  // with an unexpected/missing field (e.g. no origTime on a schedule
+  // item), which used to throw and blank the whole screen. One bad row
+  // should never take down the rest of the timetable.
+  let groups;
+  try {
+    let rows = buildDeparturesModel(nowMs);
+    // "Added" trains only exist because the live feed reported them — in
+    // schedule-only (Live off) view there's no scheduled time to show for
+    // them, so they're left out rather than shown with a made-up time.
+    // Cancellations stay visible either way: knowing not to wait for a
+    // train is safety information, not a "live time".
+    if (!state.liveOn) rows = rows.filter((r) => !r.added || r.cancelled);
+    groups = windowAndGroup(rows, nowMs);
+  } catch (err) {
+    showStatus(`Couldn't display departures: ${err.message}. If this keeps happening, BART's API may have changed a field name — please report it.`);
+    departuresEl.innerHTML = '<p class="empty-state">Something went wrong showing departures.</p>';
+    return;
+  }
 
   if (!groups.length) {
     departuresEl.innerHTML = '<p class="empty-state">No upcoming departures found for this station right now.</p>';
@@ -489,7 +507,7 @@ function closePicker() {
 }
 
 function renderStationList(query) {
-  const q = query.trim().toLowerCase();
+  const q = (query || '').trim().toLowerCase();
   const favs = getFavorites();
   const all = [...state.stations].sort((a, b) => a.name.localeCompare(b.name));
   const filtered = q ? all.filter((s) => s.name.toLowerCase().includes(q)) : all;
