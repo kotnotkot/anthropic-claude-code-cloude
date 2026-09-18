@@ -159,14 +159,23 @@ async function fetchStationsFromApi() {
 
 async function fetchScheduleForStation(abbr) {
   const data = await bartFetch('sched.aspx', { cmd: 'stnsched', orig: abbr, date: 'today' });
+  // BART's XML->JSON conversion prefixes attribute-style fields with
+  // "@" (confirmed against a real response — sched.aspx has no plain
+  // "trainId", "origTime" etc., only "@origTime" and friends).
   const stationBlock = normalizeArray(data.root.station)[0];
   const items = stationBlock ? normalizeArray(stationBlock.item) : [];
   return items.map((it) => ({
-    trainId: it.trainId,
-    destinationAbbr: it.trainHeadStation,
-    origTime: it.origTime, // e.g. "6:15 AM"
-    line: it.line,
-    bikeFlag: it.bikeFlag === '1',
+    // NOTE: despite the name, this is NOT a station abbreviation like
+    // "MLBR" — it's a rider-facing route/headsign string such as
+    // "SF / SFO Airport / Millbrae". BART's live feed (etd.aspx)
+    // appears to describe destinations more specifically than that, so
+    // destination-text matching against the live feed is unreliable
+    // until confirmed against a real etd.aspx response.
+    destinationAbbr: it['@trainHeadStation'],
+    origTime: it['@origTime'], // e.g. "6:15 AM"
+    line: it['@line'],
+    platform: it['@platform'], // e.g. "PL 2"
+    bikeFlag: it['@bikeflag'] === '1',
   }));
 }
 
