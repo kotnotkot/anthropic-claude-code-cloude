@@ -20,7 +20,6 @@ const LS_KEYS = {
   stations: 'bart_stations_cache_v1',
   favorites: 'bart_favorites_v1',
   selected: 'bart_selected_station_v1',
-  liveOn: 'bart_live_toggle_v1',
 };
 
 const PACIFIC_TZ = 'America/Los_Angeles';
@@ -30,7 +29,6 @@ const state = {
   station: null,         // currently displayed station object
   schedule: [],          // today's scheduled rows for state.station
   scheduleDateKey: null, // Pacific YYYY-MM-DD the schedule was fetched for
-  liveOn: true,
   refreshTimer: null,
 };
 
@@ -41,7 +39,6 @@ const stationNameEl = el('stationName');
 const updatedLineEl = el('updatedLine');
 const statusBannerEl = el('statusBanner');
 const departuresEl = el('departures');
-const liveToggleEl = el('liveToggle');
 const pickerOverlayEl = el('pickerOverlay');
 const stationSearchEl = el('stationSearch');
 const stationListEl = el('stationList');
@@ -284,10 +281,10 @@ function toggleFavorite(abbr) {
 // dependent — a slightly-off extra train processed first could steal
 // the slot that really belongs to a spot-on match considered later.
 //
-// A live estimate that finds no scheduled slot within tolerance is
-// treated as an *added* (extra, unscheduled) train — BART's feed has no
-// explicit "added" flag, so this is our own inference. Cancellations,
-// by contrast, come straight from BART's cancelflag.
+// A live estimate that finds no scheduled slot within tolerance simply
+// has no real published time to show — its "scheduled" time is instead
+// derived as live time minus the reported delay (see scheduledEpoch
+// below). Cancellations come straight from BART's cancelflag.
 
 function buildDeparturesModel(nowMs) {
   const live = state._liveRows || [];
@@ -366,7 +363,6 @@ function buildDeparturesModel(nowMs) {
       showLive: liveEpoch !== scheduledEpoch,
       boarding: isBoarding,
       cancelled: r.cancelled,
-      added: !matchedSched,
       platform: r.platform,
       sortEpoch: matchedSched ? scheduledEpoch : liveEpoch,
     });
@@ -386,7 +382,6 @@ function buildDeparturesModel(nowMs) {
       showLive: false,
       boarding: false,
       cancelled: false,
-      added: false,
       platform: null,
       sortEpoch: roundDownToMinuteMs(s.epoch),
     });
@@ -436,12 +431,6 @@ function renderDepartures() {
   let groups;
   try {
     const rows = buildDeparturesModel(nowMs);
-    // Every row already carries a scheduledEpoch — even an unmatched
-    // ("added") live estimate gets one, worked out as live time minus
-    // its reported delay (see buildDeparturesModel). So turning Live
-    // off never needs to remove a row, only the live overlay (the ->
-    // arrow, Boarding/Added labels, platform): renderRow already falls
-    // back to scheduledEpoch on its own when state.liveOn is false.
     groups = windowAndGroup(rows, nowMs);
   } catch (err) {
     showStatus(`Couldn't display departures: ${err.message}. If this keeps happening, BART's API may have changed a field name — please report it.`);
@@ -465,23 +454,21 @@ function renderDepartures() {
 function renderRow(r) {
   const badges = [];
   if (r.cancelled) badges.push('<span class="dep-badge badge-cancelled">Cancelled</span>');
-  if (state.liveOn && r.boarding && !r.cancelled) badges.push('<span class="dep-badge badge-boarding">Boarding</span>');
-  if (state.liveOn && r.added && !r.cancelled) badges.push('<span class="dep-badge badge-added">Added</span>');
-  if (state.liveOn && r.platform) badges.push(`<span class="dep-badge badge-platform">Platform ${escapeHtml(r.platform)}</span>`);
+  if (r.boarding && !r.cancelled) badges.push('<span class="dep-badge badge-boarding">Boarding</span>');
+  if (r.platform) badges.push(`<span class="dep-badge badge-platform">Platform ${escapeHtml(r.platform)}</span>`);
 
   const schedTimeHtml = `<span class="dep-time${r.cancelled ? ' struck' : ''}">${formatClock(r.scheduledEpoch)}</span>`;
 
   let liveHtml = '';
-  if (state.liveOn && !r.cancelled && !r.boarding && r.liveEpoch !== null && r.showLive) {
+  if (!r.cancelled && !r.boarding && r.liveEpoch !== null && r.showLive) {
     liveHtml = `<span class="dep-arrow">&rarr;</span><span class="dep-live">${formatClock(r.liveEpoch)}</span>`;
   }
 
-  // With Live on, an "added" train shows its live time as the primary
-  // time (its scheduledEpoch is only an inferred stand-in, not a real
-  // published time), and a boarding train shows one current clock time
-  // rather than a "sched -> live" arrow. With Live off, both fall back
-  // to schedTimeHtml above like any other row.
-  const primaryHtml = (r.added || r.boarding) && state.liveOn && r.liveEpoch !== null
+  // A boarding train shows one current clock time plus its badge,
+  // rather than a "sched -> live" arrow that reads oddly once a train
+  // is already at the platform. Every other row shows its scheduled
+  // time, plus a red live time after an arrow only when it differs.
+  const primaryHtml = r.boarding && r.liveEpoch !== null
     ? `<span class="dep-time">${formatClock(r.liveEpoch)}</span>`
     : schedTimeHtml + liveHtml;
 
@@ -639,20 +626,11 @@ el('refreshBtn').addEventListener('click', async () => {
   }
 });
 
-liveToggleEl.addEventListener('change', () => {
-  state.liveOn = liveToggleEl.checked;
-  localStorage.setItem(LS_KEYS.liveOn, state.liveOn ? '1' : '0');
-  renderDepartures();
-});
-
 // Re-render (not re-fetch) periodically too, so "Updated" / boarding
 // status stays fresh between fetches without hammering the API.
 setInterval(() => { if (state._liveRows) renderDepartures(); }, 15000);
 
 async function init() {
-  state.liveOn = localStorage.getItem(LS_KEYS.liveOn) !== '0';
-  liveToggleEl.checked = state.liveOn;
-
   try {
     state.stations = await getStations();
   } catch (err) {

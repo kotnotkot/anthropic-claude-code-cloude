@@ -156,8 +156,13 @@ corresponds to which scheduled train. It does this by:
    train.
 3. Only accepting a match if it's within `MATCH_TOLERANCE_MINUTES` (12
    minutes by default, in `config.js`) of the scheduled time — if nothing
-   scheduled is nearby, the app labels it **Added** (an extra, unscheduled
-   train) rather than forcing a bad match.
+   scheduled is nearby, the train's "scheduled" time is instead derived as
+   its live time minus the reported delay (see the time rules above), so it
+   still shows a plain clock time rather than forcing a bad match. An
+   earlier version of this app labeled these trains "Added"; that's gone
+   now — a train BART wasn't expecting isn't a distinction worth a special
+   badge, especially since matching is inherently a guess (see the note on
+   `sched.aspx`'s real field shapes below).
 
 **Cancelled** trains are different — BART's live feed flags those directly
 (a `cancelflag`), so no guessing is involved there.
@@ -171,16 +176,15 @@ if you'd rather have it differently (ask me, or edit the noted spot):
 - **Grouped by destination, not by line** (e.g. "To Antioch", not "Yellow
   Line"). Riders generally think in terms of where the train is going.
   (`app.js`, `windowAndGroup`)
-- **Turning Live off never removes a row, only the live overlay.** Every
-  departure — even an "Added" (unscheduled) one — carries a scheduled time
-  per the time rules above (worked out from live time minus the reported
-  delay when there's no real published match), so Live off just falls back
-  to that instead of hiding the row. An earlier version of this app hid
-  Added trains entirely when Live was off, which could empty the whole
-  screen if the schedule data failed to match anything — fixed after
-  hitting exactly that. Cancelled trains stay marked either way, since
-  "don't wait for a train that isn't coming" is safety information, not a
-  live-only detail. (`app.js`, `renderDepartures`, `renderRow`)
+- **There's no Live on/off toggle.** The brief originally asked for one, but
+  after using the app it turned out to add more confusion than value — a
+  train that couldn't be matched to the schedule ("Added") used to
+  disappear entirely when Live was off, which could empty the whole screen.
+  Live info is simpler to just always show: every departure displays its
+  scheduled time, plus a red "→ live time" only when it's running late
+  (never a countdown, never hidden behind a switch). Cancelled and Boarding
+  stay marked the same way regardless. (`app.js`, `renderRow` — no
+  `liveOn` state or toggle in the code anymore)
 - **A boarding train shows one time (the live one) plus a "Boarding" label**,
   rather than a "scheduled → live" arrow — showing both looked confusing
   once a train is already at the platform. (`app.js`, `renderRow`)

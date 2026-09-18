@@ -8,7 +8,6 @@
   --accent-text: #ffffff;
   --late: #b3261e;
   --cancel: #b3261e;
-  --added: #6a4bd6;
   --on-time-shadow: none;
 }
 
@@ -23,7 +22,6 @@
     --accent-text: #0f1115;
     --late: #ff8a80;
     --cancel: #ff8a80;
-    --added: #b9a3ff;
   }
 }
 
@@ -87,21 +85,6 @@ button {
   align-items: center;
   gap: 0.6rem;
   flex-shrink: 0;
-}
-
-.live-toggle {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-size: 0.95rem;
-  font-weight: 600;
-  padding: 0.3rem 0.5rem;
-  cursor: pointer;
-}
-
-.live-toggle input {
-  width: 1.2rem;
-  height: 1.2rem;
 }
 
 .icon-btn {
@@ -215,13 +198,11 @@ button {
 
 .badge-boarding { background: #e8f5e9; color: #1b5e20; }
 .badge-cancelled { background: #fdecea; color: var(--cancel); }
-.badge-added { background: #ece6ff; color: var(--added); }
 .badge-platform { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 
 @media (prefers-color-scheme: dark) {
   .badge-boarding { background: #14351a; color: #9be29f; }
   .badge-cancelled { background: #3a1a17; color: var(--cancel); }
-  .badge-added { background: #2a2140; color: var(--added); }
 }
 
 .dep-spacer { flex: 1 1 auto; }
